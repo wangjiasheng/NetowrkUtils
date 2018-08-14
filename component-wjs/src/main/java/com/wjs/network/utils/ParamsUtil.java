@@ -1,4 +1,4 @@
-package com.wjs.utils;
+package com.wjs.network.utils;
 
 import java.util.Iterator;
 import java.util.Map;

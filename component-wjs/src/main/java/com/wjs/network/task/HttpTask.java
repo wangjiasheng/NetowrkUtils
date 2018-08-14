@@ -4,12 +4,12 @@ import android.content.Context;
 import android.os.AsyncTask;
 
 import com.wjs.network.exception.LockParamsExeption;
-import com.wjs.network.exception.ReturnNollStringException;
-import com.wjs.network.exception.ReturnNullException;
+import com.wjs.network.exception.ResponseNullException;
+import com.wjs.network.exception.ReturnNullStringException;
 import com.wjs.network.http.HttpUtils;
 import com.wjs.network.json.HttpMethod;
-import com.wjs.utils.NetworkUtils;
-import com.wjs.utils.StringUtils;
+import com.wjs.network.utils.NetworkUtils;
+import com.wjs.network.utils.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -413,7 +413,7 @@ public class HttpTask extends AsyncTask<Void,Void,Message>
         }
         return null;
     }
-    public Message getRequestNetwork(long time,Message message) throws LockParamsExeption, ReturnNullException, ReturnNollStringException {
+    public Message getRequestNetwork(long time,Message message) throws LockParamsExeption, ResponseNullException, ReturnNullStringException {
         String requestResult = null;
         Response response = null;
 
@@ -484,14 +484,14 @@ public class HttpTask extends AsyncTask<Void,Void,Message>
                     if (mHttpCallback != null) {
                         mHttpCallback.onBackground(System.currentTimeMillis() - time);
                     }
-                    throw new ReturnNollStringException();
+                    throw new ReturnNullStringException();
                 }
             }
         } else {
             if (mHttpCallback != null) {
                 mHttpCallback.onBackground(System.currentTimeMillis() - time);
             }
-            throw new ReturnNullException();
+            throw new ResponseNullException();
         }
        return null;
     }

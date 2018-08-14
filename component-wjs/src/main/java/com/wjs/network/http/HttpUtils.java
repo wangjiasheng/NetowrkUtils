@@ -3,7 +3,7 @@ import android.os.AsyncTask;
 import android.util.Log;
 
 import com.wjs.network.task.Response;
-import com.wjs.utils.StringUtils;
+import com.wjs.network.utils.StringUtils;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -15,8 +15,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
-
-import javax.net.ssl.HttpsURLConnection;
 
 /**
  *

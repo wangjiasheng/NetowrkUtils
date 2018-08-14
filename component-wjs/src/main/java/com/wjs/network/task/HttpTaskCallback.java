@@ -12,14 +12,23 @@ public abstract class HttpTaskCallback<T>
 {
     /**
      * 后台线程URL参数的修改
+     * @param context 上下文对象
+     * @param requestURL 请求的url地址
+     * @return 返回修改后的地址
      */
     public String onModifyURL(Context context,String requestURL){return requestURL;};
     /**
      * 后台查询数据接口
+     * @param context 上下文对象
+     * @param params Http请求的参数
+     * @return Http请求的参数
      */
     public Map<String,String> onLoadParams(Context context, Map<String,String> params){return params;};
     /**
      * 后台加密线程
+     * @param key 需要加密的key值
+     * @param params 需要加密的value值
+     * @return 加密后的value值
      * */
     public String onLockParams(String key,String params)
     {
@@ -47,6 +56,7 @@ public abstract class HttpTaskCallback<T>
     public void onSaveCookie(List<String> cookies){};
     /**
      * 后台线程-读取cookie
+     * @return 本地读取的cookie值
      */
     public List<String> onLoadCookie()
     {

@@ -3,13 +3,11 @@ package com.wjs.network.upload;
 import android.content.Context;
 import android.os.AsyncTask;
 
-import com.wjs.network.http.HttpUtils;
-import com.wjs.network.json.HttpMethod;
 import com.wjs.network.task.HttpTaskCallback;
 import com.wjs.network.task.Message;
 import com.wjs.network.task.Response;
-import com.wjs.utils.NetworkUtils;
-import com.wjs.utils.StringUtils;
+import com.wjs.network.utils.NetworkUtils;
+import com.wjs.network.utils.StringUtils;
 
 import java.io.File;
 import java.util.ArrayList;
