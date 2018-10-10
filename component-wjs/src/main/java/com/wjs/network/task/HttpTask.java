@@ -285,14 +285,15 @@ public class HttpTask extends AsyncTask<Void,Void,Message> {
             {
                 if (mHttpCallback != null)
                 {
-                    mHttpCallback.onSucess(aVoid.getData());
                     mHttpCallback.onHideProgress();
+                    mHttpCallback.onSucess(aVoid.getData());
                 }
             }
             else
             {
                 if (mHttpCallback != null)
                 {
+                    mHttpCallback.onHideProgress();
                     if(aVoid!=null) {
                         mHttpCallback.onFaield(new Exception(aVoid.getMessage()));
                     }
@@ -300,7 +301,6 @@ public class HttpTask extends AsyncTask<Void,Void,Message> {
                     {
                         mHttpCallback.onFaield(new Exception("服务器返回数据为空"));
                     }
-                    mHttpCallback.onHideProgress();
                 }
             }
         }
