@@ -230,7 +230,7 @@ public class FileUpload extends AsyncTask<Void,Void,Message>
             }
             if (!isCancelled())
             {
-                List<String> sCookie =null;
+                String sCookie =null;
                 if(callback!=null)
                 {
                     sCookie = callback.onLoadCookie();

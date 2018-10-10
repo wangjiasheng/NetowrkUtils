@@ -1,15 +1,14 @@
 apply plugin: 'com.android.library'
 apply plugin: 'com.github.dcendents.android-maven'
 apply plugin: 'com.jfrog.bintray'
+apply plugin: 'com.novoda.bintray-release'
 android {
-    compileSdkVersion allproject_COMPILE_SDK_VERSION
-    buildToolsVersion allproject_BUILD_TOOLS_VERSION
-
+    compileSdkVersion 28
     defaultConfig {
-        minSdkVersion allproject_MIN_SDK_VERSION
-        targetSdkVersion allproject_TARGET_SDK_VERSION
-        versionCode 1
-        versionName "1.0"
+        minSdkVersion 17
+        targetSdkVersion 28
+        versionCode 2
+        versionName "1.1"
     }
     lintOptions {
         abortOnError false
@@ -20,72 +19,20 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
-    buildToolsVersion '26.0.2'
-    version = "1.0"
-    def siteUrl = 'https://github.com/wangjiasheng/NetowrkUtils.git'      // 项目的主页
-    def gitUrl = 'https://github.com/wangjiasheng/NetowrkUtils.git'   // Git仓库的url
-    group = "com.wjs.library.netowrk"  // 项目的包名
-    install {
-        repositories.mavenInstaller {
-            pom {
-                project {
-                    packaging 'aar'
-                    name '王家胜的工具包' 	//项目描述
-                    url siteUrl
-                    licenses {
-                        license {
-                            name 'The Apache Software License, Version 2.0'
-                            url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
-                        }
-                    }
-                    developers {
-                        developer {
-                            id 'wjs'		//填写的一些基本信息
-                            name '王家胜'
-                            email '314232332@qq.com'
-                        }
-                    }
-                    scm {
-                        connection gitUrl
-                        developerConnection gitUrl
-                        url siteUrl
-                    }
-                }
-            }
+    buildToolsVersion '28.0.2'
+
+    tasks.withType(Javadoc) {
+        options{ encoding "UTF-8"
+            charSet 'UTF-8'
+            links "http://docs.oracle.com/javase/7/docs/api"
         }
     }
-    task sourcesJar(type: Jar) {
-        from android.sourceSets.main.java.srcDirs
-        classifier = 'sources'
+    publish {
+        userOrg = '314232332'      //bintray注册的用户名
+        groupId = 'com.wjs.library'         //compile引用时的第1部分groupId
+        artifactId = 'networkutils'     //compile引用时的第2部分项目名
+        publishVersion = '3.0.2'    //compile引用时的第3部分版本号
+        desc = '这是一个网络请求框架 '
+        website = 'https://github.com/wangjiasheng/NetowrkUtils'
     }
-    task javadoc(type: Javadoc) {
-        options.encoding = 'UTF-8'
-        source = android.sourceSets.main.java.srcDirs
-        classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
-    }
-    task javadocJar(type: Jar, dependsOn: javadoc) {
-        classifier = 'javadoc'
-        from javadoc.destinationDir
-    }
-    artifacts {
-        archives javadocJar
-        archives sourcesJar
-    }
-    Properties properties = new Properties()
-    properties.load(project.rootProject.file('local.properties').newDataInputStream())
-    bintray {
-        user = properties.getProperty("bintray.user")
-        key = properties.getProperty("bintray.apikey")
-        configurations = ['archives']
-        pkg {
-            repo = "maven"
-            name = "networkutils"	//发布到JCenter上的项目名字
-            websiteUrl = siteUrl
-            vcsUrl = gitUrl
-            licenses = ["Apache-2.0"]
-            publish = true
-        }
-    }
-
-
 }

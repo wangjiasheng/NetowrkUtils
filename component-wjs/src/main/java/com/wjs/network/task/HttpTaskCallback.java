@@ -23,7 +23,7 @@ public abstract class HttpTaskCallback<T>
      * @param params Http请求的参数
      * @return Http请求的参数
      */
-    public Map<String,String> onLoadParams(Context context, Map<String,String> params){return params;};
+    public Map<String,String> onLoadLocalParams(Context context, Map<String,String> params){return params;};
     /**
      * 后台加密线程
      * @param key 需要加密的key值
@@ -58,7 +58,7 @@ public abstract class HttpTaskCallback<T>
      * 后台线程-读取cookie
      * @return 本地读取的cookie值
      */
-    public List<String> onLoadCookie()
+    public String onLoadCookie()
     {
         return null;
     }
@@ -66,4 +66,9 @@ public abstract class HttpTaskCallback<T>
      * 网络不可用
      */
     public void networkCannotUse(){};
+
+    //后台线程-将参数签名
+    public Map<String,String> signParams(Map<String,String> params){
+        return params;
+    }
 }

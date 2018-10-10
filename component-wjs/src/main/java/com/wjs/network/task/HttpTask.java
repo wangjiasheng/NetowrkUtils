@@ -4,7 +4,6 @@ import android.content.Context;
 import android.os.AsyncTask;
 
 import com.wjs.network.exception.LockParamsExeption;
-import com.wjs.network.exception.ResponseNullException;
 import com.wjs.network.exception.ReturnNullStringException;
 import com.wjs.network.http.HttpUtils;
 import com.wjs.network.json.HttpMethod;
@@ -19,15 +18,14 @@ import java.util.Set;
 /**
  * Created by 家胜 on 2016/6/29.
  */
-public class HttpTask extends AsyncTask<Void,Void,Message>
-{
+public class HttpTask extends AsyncTask<Void,Void,Message> {
     private HttpTaskCallback mHttpCallback;
     private String mRequestURL;
     private Map<String,String> mReqParams;
     private Context mContext;
     private HttpMethod mHttpMethod;
-    public HttpTask(Context mContext, HttpMethod mHttpMethod, String mRequestURL, Map<String,String> mReqParams, HttpTaskCallback callback)
-    {
+    private long time=-1;
+    public HttpTask(Context mContext, HttpMethod mHttpMethod, String mRequestURL, Map<String,String> mReqParams, HttpTaskCallback callback) {
         super();
         this.mContext =mContext;
         this.mHttpCallback =callback;
@@ -35,13 +33,14 @@ public class HttpTask extends AsyncTask<Void,Void,Message>
         this.mReqParams =mReqParams;
         this.mHttpMethod =mHttpMethod;
     }
-    public HttpTask submit()
-    {
-        execute();
+    public HttpTask submit() {
+        executeOnExecutor(ThreadPoolUtils.getService());
         return this;
     }
-    public void cancle()
-    {
+    public void retry(){
+        HttpTask httpTask = new HttpTask(mContext,HttpMethod.POST, mRequestURL, mReqParams,mHttpCallback).submit();
+    }
+    public void cancle() {
         try
         {
             cancel(true);
@@ -87,12 +86,10 @@ public class HttpTask extends AsyncTask<Void,Void,Message>
             }
         }
     }
-    public static HttpTask post(Context context, String requestURL,HttpTaskCallback callback)
-    {
+    public static HttpTask post(Context context, String requestURL,HttpTaskCallback callback) {
         return post(context,requestURL,null,callback);
     }
-    public static HttpTask post(Context context, String requestURL, Map<String,String> requestParam,HttpTaskCallback callback)
-    {
+    public static HttpTask post(Context context, String requestURL, Map<String,String> requestParam,HttpTaskCallback callback) {
         try {
             HttpTask httpTask = new HttpTask(context,HttpMethod.POST, requestURL, requestParam,callback).submit();
             return httpTask;
@@ -132,12 +129,10 @@ public class HttpTask extends AsyncTask<Void,Void,Message>
         }
         return null;
     }
-    public static HttpTask get(Context context, String requestURL,HttpTaskCallback callback)
-    {
+    public static HttpTask get(Context context, String requestURL,HttpTaskCallback callback) {
         return get(context,requestURL,null,callback);
     }
-    public static HttpTask get(Context context, String requestURL,Map<String,String> requestParam,HttpTaskCallback callback)
-    {
+    public static HttpTask get(Context context, String requestURL,Map<String,String> requestParam,HttpTaskCallback callback) {
         try {
             HttpTask httpTask = new HttpTask(context,HttpMethod.GET, requestURL, requestParam,callback).submit();
             return httpTask;
@@ -219,21 +214,19 @@ public class HttpTask extends AsyncTask<Void,Void,Message>
             }
         }
     }
-
     @Override
-    protected Message doInBackground(Void... params)
-    {
+    protected Message doInBackground(Void... params) {
         Message message = new Message();
         try {
-            if (mHttpCallback != null) {
-                mRequestURL=mHttpCallback.onModifyURL(mContext,mRequestURL);
-                mHttpCallback.onLoadParams(mContext, mReqParams);//添加本地参数
-                mHttpCallback.onSleeping();//首先执行暂停等待操作,例如某些地方需要让progressbar显示的更久一些
-            }
-            long time = System.currentTimeMillis();//用于需要后台执行10s如果后台提前完成在onSleping(long)返回剩余时间
             if (NetworkUtils.isNetworkAvailable(mContext)) {//判断网络是否可用
+                time = System.currentTimeMillis();//用于需要后台执行10s如果后台提前完成在onSleping(long)返回剩余时间
+                if (mHttpCallback != null) {
+                    mRequestURL=mHttpCallback.onModifyURL(mContext,mRequestURL);//修改网络请求中的通配符
+                    mHttpCallback.onLoadLocalParams(mContext, mReqParams);//添加本地参数
+                    mHttpCallback.onSleeping();//首先执行暂停等待操作,例如某些地方需要让progressbar显示的更久一些
+                }
                 if (mRequestURL != null) {
-                    return getRequestNetwork(time,message);
+                    return getRequestNetwork(message);
                 } else {
                     message.setStatus(false);
                     message.setCode(1106);
@@ -280,8 +273,7 @@ public class HttpTask extends AsyncTask<Void,Void,Message>
         return message;
     }
     @Override
-    protected void onPostExecute(Message aVoid)
-    {
+    protected void onPostExecute(Message aVoid) {
         super.onPostExecute(aVoid);
         try
         {
@@ -377,7 +369,32 @@ public class HttpTask extends AsyncTask<Void,Void,Message>
             mHttpCallback.onHideProgress();
         }
     }
-    public String getParamsString(long time) throws LockParamsExeption {
+    public void lockParams() throws LockParamsExeption {
+        if(mReqParams!=null) {
+            Set<Map.Entry<String, String>> set = mReqParams.entrySet();
+            Iterator<Map.Entry<String, String>> iterator = set.iterator();
+            while (iterator.hasNext()) {
+                Map.Entry<String, String> entry = iterator.next();
+                String key = entry.getKey();
+                String value = entry.getValue();
+                if (mHttpCallback != null && value != null) {
+                    value = mHttpCallback.onLockParams(key, value);
+                    if (value == null) {
+                        if (mHttpCallback != null) {
+                            mHttpCallback.onBackground(System.currentTimeMillis() - time);
+                        }
+                        throw new LockParamsExeption();
+                    }
+                }
+            }
+        }
+    }
+    public void signParams(){
+        if(mHttpCallback!=null&&mReqParams!=null){
+            mReqParams=mHttpCallback.signParams(mReqParams);
+        }
+    }
+    public String getParamsString() {
         StringBuilder builder = new StringBuilder();
         if (mReqParams != null)
         {
@@ -387,17 +404,6 @@ public class HttpTask extends AsyncTask<Void,Void,Message>
                 Map.Entry<String, String> entry = iterator.next();
                 String key = entry.getKey();
                 String value = entry.getValue();
-                if (mHttpCallback != null) {
-                    if(value!=null) {
-                        value = mHttpCallback.onLockParams(key, value);
-                        if (value == null) {
-                            if (mHttpCallback != null) {
-                                mHttpCallback.onBackground(System.currentTimeMillis() - time);
-                            }
-                            throw new LockParamsExeption();
-                        }
-                    }
-                }
                 if (builder.length() == 0) {
                     builder.append(key);
                     builder.append("=");
@@ -413,85 +419,85 @@ public class HttpTask extends AsyncTask<Void,Void,Message>
         }
         return null;
     }
-    public Message getRequestNetwork(long time,Message message) throws LockParamsExeption, ResponseNullException, ReturnNullStringException {
-        String requestResult = null;
-        Response response = null;
-
-        String param=getParamsString(time);
+    public String getRequestURL(String param) throws LockParamsExeption {
+        String requestURL=null;
         if(StringUtils.isNotNull(param))
         {
-            if (mHttpCallback != null) {
+            if(mHttpCallback!=null){
                 if (mRequestURL.indexOf("?") > 0) {
-                    mHttpCallback.onRequestURL(mRequestURL + "&" + param);
+                    requestURL=mRequestURL + "&" + param;
                 } else {
-                    mHttpCallback.onRequestURL(mRequestURL + "?" + param);
-                }
-                List<String> sCookie = null;
-                if (mHttpCallback != null) {
-                    sCookie = mHttpCallback.onLoadCookie();
-                }
-                if (mHttpMethod == HttpMethod.POST) {
-                    response = HttpUtils.doPost(this, mRequestURL, param, sCookie, 10);
-                } else {
-
-                    if (mRequestURL.indexOf("?") > 0) {
-                        response = HttpUtils.doGet(this, mRequestURL + "&" + param, sCookie, 10);
-                    } else {
-                        response = HttpUtils.doGet(this, mRequestURL + "?" + param, sCookie, 10);
-                    }
+                    requestURL=mRequestURL + "?" + param;
                 }
             }
         }
-        else
-        {
-            if (mHttpCallback != null) {
-                mHttpCallback.onRequestURL(mRequestURL);
-            }
-            List<String> sCookie = null;
-            if (mHttpCallback != null) {
-                sCookie = mHttpCallback.onLoadCookie();
-            }
-            if (mHttpMethod == HttpMethod.POST) {
-                response = HttpUtils.doPost(this, mRequestURL, null, sCookie, 10);
-            } else {
-                response = HttpUtils.doGet(this, mRequestURL, sCookie, 10);
-            }
+        else{
+            requestURL=mRequestURL;
         }
-        if (response != null) {
-            requestResult = response.getResult();
-            List<String> mCookei = response.getCookie();
-            if (mHttpCallback != null) {
-                if (mCookei != null) {
-                    mHttpCallback.onSaveCookie(mCookei);
-                } else {
-                    mHttpCallback.onSaveCookie(new ArrayList<String>());
-                }
-            }
-            if (!isCancelled()) {
-                if (StringUtils.isNotNull(requestResult)) {
-                    if (mHttpCallback != null) {
-                        if (!isCancelled()) {
-                            Object t = mHttpCallback.onCreateBean(requestResult);
-                            if (mHttpCallback != null) {
-                                mHttpCallback.onBackground(System.currentTimeMillis() - time);
-                            }
-                            message.setStatus(true);
-                            message.setData(t);
-                            return message;
-                        }
-                    }
-                } else {
-                    if (mHttpCallback != null) {
-                        mHttpCallback.onBackground(System.currentTimeMillis() - time);
-                    }
-                    throw new ReturnNullStringException();
-                }
-            }
+        if (mHttpCallback != null) {
+            mHttpCallback.onRequestURL(requestURL);
+        }
+        return requestURL;
+    }
+    public String loadCookie(){
+       String sCookie = null;
+        if (mHttpCallback != null) {
+            sCookie = mHttpCallback.onLoadCookie();
+        }
+        return sCookie;
+    }
+    public Response requestNetwork(String requestURL,String param,String sCookie){
+        Response response = null;
+        if (mHttpMethod == HttpMethod.POST) {
+            response = HttpUtils.doPost(this, mRequestURL, param, sCookie, 10);
         } else {
-            if (mHttpCallback != null) {
-                mHttpCallback.onBackground(System.currentTimeMillis() - time);
+            response = HttpUtils.doGet(this, requestURL, sCookie, 10);
+        }
+        return response;
+    }
+    public void saveCookie(Response response){
+        List<String> mCookei = response.getCookie();
+        if (mHttpCallback != null) {
+            if (mCookei != null) {
+                mHttpCallback.onSaveCookie(mCookei);
+            } else {
+                mHttpCallback.onSaveCookie(new ArrayList<String>());
             }
-            throw new ResponseNullException();
+        }
+    }
+    public Object createBean(String requestResult){
+        if (mHttpCallback != null) {
+            if (!isCancelled()) {
+                Object t = mHttpCallback.onCreateBean(requestResult);
+              return t;
+            }
+        }
+        return null;
+    }
+    public Message getRequestNetwork(Message message) throws LockParamsExeption, ReturnNullStringException {
+        lockParams();
+        signParams();
+        String param=getParamsString();
+        String requestURL=getRequestURL(param);
+        String sCookie=loadCookie();
+        Response response = requestNetwork(requestURL,param,sCookie);  //Resopnse不会为空的
+        String requestResult = response.getResult();
+        saveCookie(response);
+        if (!isCancelled()) {
+            if (StringUtils.isNotNull(requestResult)) {
+                Object t=createBean(requestResult);
+                if (mHttpCallback != null) {
+                    mHttpCallback.onBackground(System.currentTimeMillis() - time);
+                }
+                message.setStatus(true);
+                message.setData(t);
+                return message;
+            } else {
+                if (mHttpCallback != null) {
+                    mHttpCallback.onBackground(System.currentTimeMillis() - time);
+                }
+                throw new ReturnNullStringException();
+            }
         }
        return null;
     }
