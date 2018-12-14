@@ -4,6 +4,7 @@ import android.content.Context;
 import android.os.AsyncTask;
 
 import com.wjs.network.exception.LockParamsExeption;
+import com.wjs.network.exception.NetworkNotUseException;
 import com.wjs.network.exception.ReturnNullStringException;
 import com.wjs.network.http.HttpUtils;
 import com.wjs.network.json.HttpMethod;
@@ -216,101 +217,63 @@ public class HttpTask extends AsyncTask<Void,Void,Message> {
     }
     @Override
     protected Message doInBackground(Void... params) {
-        Message message = new Message();
         try {
             if (NetworkUtils.isNetworkAvailable(mContext)) {//判断网络是否可用
                 time = System.currentTimeMillis();//用于需要后台执行10s如果后台提前完成在onSleping(long)返回剩余时间
                 if (mHttpCallback != null) {
-                    mRequestURL=mHttpCallback.onModifyURL(mContext,mRequestURL);//修改网络请求中的通配符
+                    mRequestURL = mHttpCallback.onModifyURL(mContext, mRequestURL);//修改网络请求中的通配符
                     mHttpCallback.onLoadLocalParams(mContext, mReqParams);//添加本地参数
                     mHttpCallback.onSleeping();//首先执行暂停等待操作,例如某些地方需要让progressbar显示的更久一些
                 }
                 if (mRequestURL != null) {
-                    return getRequestNetwork(message);
+                    lockParams();
+                    signParams();
+                    String param=getParamsString();
+                    String requestURL=getRequestURL(param);
+                    String sCookie=loadCookie();
+                    Response response = requestNetwork(requestURL,param,sCookie);  //Resopnse不会为空的
+                    String requestResult = response.getResult();
+                    saveCookie(response);
+                    return getRequestNetwork(requestResult);
                 } else {
-                    message.setStatus(false);
-                    message.setCode(1106);
-                    message.setMessage("URL为空");
-                    return message;
+                    throw new RuntimeException("URL不能为空");
                 }
+            } else {
+                throw new NetworkNotUseException();
             }
-            else
-            {
-                message.setStatus(false);
-                message.setCode(1005);
-                message.setMessage("网络不可用");
-                return message;
-            }
+        } catch (LockParamsExeption lockParamsExeption) {
+            lockParamsExeption.printStackTrace();
+        } catch (ReturnNullStringException e) {
+            e.printStackTrace();
+        } catch (NetworkNotUseException e) {
+            e.printStackTrace();
         }
-        catch (NullPointerException ex)
-        {
-            ex.printStackTrace();
-            message.setStatus(false);
-            message.setCode(1000);
-            message.setMessage("NullPointerException");
-        }
-        catch (Exception ex)
-        {
-            ex.printStackTrace();
-            message.setStatus(false);
-            message.setCode(1001);
-            message.setMessage(ex.getMessage());
-        }
-        catch (Error ex)
-        {
-            ex.printStackTrace();
-            message.setStatus(false);
-            message.setCode(1002);
-            message.setMessage(ex.getMessage());
-        }
-        catch (Throwable ex)
-        {
-            ex.printStackTrace();
-            message.setStatus(false);
-            message.setCode(1003);
-            message.setMessage(ex.getMessage());
-        }
-        return message;
+        return null;
     }
     @Override
     protected void onPostExecute(Message aVoid) {
         super.onPostExecute(aVoid);
         try
         {
-            if(isCancelled())
+            if(isCancelled()||mHttpCallback==null)//这是一个不需要返回结果的请求
             {
                 return;
             }
-            if (aVoid != null&&aVoid.isStatus())
+            if (aVoid != null)
             {
-                if (mHttpCallback != null)
-                {
+                if(aVoid.isStatus()) {//数组完全是自己需要的没有发生任何错误
                     mHttpCallback.onHideProgress();
                     mHttpCallback.onSucess(aVoid.getData());
                 }
-            }
-            else
-            {
-                if (mHttpCallback != null)
-                {
+                else{//服务器返回的异常码
                     mHttpCallback.onHideProgress();
-                    if(aVoid!=null) {
-                        mHttpCallback.onFaield(new Exception(aVoid.getMessage()));
-                    }
-                    else
-                    {
-                        mHttpCallback.onFaield(new Exception("服务器返回数据为空"));
-                    }
+                    mHttpCallback.onFaield(new Exception(aVoid.getMessage()));
                 }
             }
-        }
-        catch (NullPointerException ex)
-        {
-            ex.printStackTrace();
-            if(mHttpCallback !=null)
+            else//网络请求发生了各种异常，导致结果为空（本地发出的异常）
             {
-                mHttpCallback.onFaield(ex);
                 mHttpCallback.onHideProgress();
+                mHttpCallback.onFaield(new Exception("服务器返回数据为空"));
             }
         }
         catch (Exception ex)
@@ -380,9 +343,7 @@ public class HttpTask extends AsyncTask<Void,Void,Message> {
                 if (mHttpCallback != null && value != null) {
                     value = mHttpCallback.onLockParams(key, value);
                     if (value == null) {
-                        if (mHttpCallback != null) {
-                            mHttpCallback.onBackground(System.currentTimeMillis() - time);
-                        }
+                        mHttpCallback.onBackground(System.currentTimeMillis() - time);
                         throw new LockParamsExeption();
                     }
                 }
@@ -474,15 +435,8 @@ public class HttpTask extends AsyncTask<Void,Void,Message> {
         }
         return null;
     }
-    public Message getRequestNetwork(Message message) throws LockParamsExeption, ReturnNullStringException {
-        lockParams();
-        signParams();
-        String param=getParamsString();
-        String requestURL=getRequestURL(param);
-        String sCookie=loadCookie();
-        Response response = requestNetwork(requestURL,param,sCookie);  //Resopnse不会为空的
-        String requestResult = response.getResult();
-        saveCookie(response);
+    public Message getRequestNetwork(String requestResult) throws LockParamsExeption, ReturnNullStringException {
+        Message message = new Message();
         if (!isCancelled()) {
             if (StringUtils.isNotNull(requestResult)) {
                 Object t=createBean(requestResult);

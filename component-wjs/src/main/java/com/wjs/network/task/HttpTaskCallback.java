@@ -42,6 +42,8 @@ public abstract class HttpTaskCallback<T>
     public abstract void onSucess(T bean);
     //后台线程-解析JavaBean
     public Object onCreateBean(String requestResult){return requestResult;};
+    //后台线程-请求网络
+    public Runnable requestNetwork(){return null;};
     //UI线程-失败回调
     public abstract void onFaield(Throwable ex);
     //UI线程-隐藏进度条
